@@ -326,9 +326,39 @@ class SMDSeqDataset(Dataset):
         elif self.mode == 'val':
             return np.float32(self.val[org_index:org_index + self.win_size]), \
                 np.float32(self.test_labels[self.test_labels[0:self.win_size]])
-        else:
+        elif self.mode == 'test':
             return np.float32(self.val[org_index:org_index + self.win_size]), \
                 np.float32(self.test_labels[org_index:org_index + self.win_size])
+        else:
+            return np.float32(self.val[
+                              org_index // self.slide_step * self.win_size:org_index // self.slide_step * self.win_size + self.win_size]), np.float32(
+                self.test_labels[org_index // self.slide_step * self.win_size:org_index // self.slide_step * self.win_size + self.win_size])
+
+
+
+
+def get_data_loader(data_path, batch_size, win_size=100, slide_step=100, mode='train',
+                    transform=True, dataset='KDD'):
+    if (dataset == 'SMD'):
+        dataset = SMDSeqDataset(data_path, win_size, slide_step, mode, transform)
+    elif (dataset == 'MSL'):
+        dataset = MSLSeqDataset(data_path, win_size, slide_step, mode, transform)
+    elif (dataset == 'SMAP'):
+        dataset = SMAPSeqDataset(data_path, win_size, slide_step, mode, transform)
+    elif (dataset == 'PSM'):
+        dataset = PSMSeqDataset(data_path, win_size, slide_step, mode, transform)
+
+    shuffle = False
+    if mode == 'train':
+        shuffle = True
+
+    data_loader = DataLoader(dataset=dataset,
+                             batch_size=batch_size,
+                             shuffle=shuffle,
+                             num_workers=0)
+    return data_loader
+
+
 
 
 #-------------------------异常检测的Dataset总类--------------------------

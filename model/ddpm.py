@@ -15,6 +15,8 @@ from torch.utils.data import DataLoader
 from sklearn.datasets import make_s_curve, make_swiss_roll
 import os
 
+
+
 os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 s_curve, _ = make_swiss_roll(10**4, noise=0.1)
@@ -128,10 +130,10 @@ class EMA():
         return new_average
 
 class DDPM:
-    def __init__(self, input_shape=None, time_steps=100, beta_schedule='sigmoid'):
+    def __init__(self, time_steps=100, beta_schedule='sigmoid'):
         super(DDPM, self).__init__()
         # self.generator = model
-        self.input_shape = input_shape
+        # self.input_shape = input_shape
         self.time_steps = time_steps
         self.beta_schedule = beta_schedule
         self.all_variable_dict = self.get_all_variable()
@@ -185,6 +187,9 @@ class DDPM:
 
         sqrt_alphas_cumprod_t = self.sqrt_alphas_cumprod[t].to(device)
         sqrt_one_minus_alphas_cumprod_t = self.sqrt_one_minus_alphas_cumprod[t].to(device)
+        sqrt_alphas_cumprod_t = sqrt_alphas_cumprod_t.unsqueeze(-1).repeat(1, x_start.shape[1], x_start.shape[2])
+        sqrt_one_minus_alphas_cumprod_t = sqrt_one_minus_alphas_cumprod_t.unsqueeze(-1).repeat(1, x_start.shape[1],
+                                                                                               x_start.shape[2])
         return sqrt_alphas_cumprod_t * x_start + sqrt_one_minus_alphas_cumprod_t * noise
 
     @torch.no_grad()
@@ -192,11 +197,13 @@ class DDPM:
         """
         :return:返回t-1时刻的生成样本
         """
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         t = torch.tensor([t]).to(device)
         betas_t = self.betas[t].to(device)
         sqrt_one_minus_alphas_cumprod_t = self.sqrt_one_minus_alphas_cumprod[t].to(device)
         sqrt_recip_alphas_t = self.sqrt_recip_alphas[t].to(device)
         model_mean = sqrt_recip_alphas_t * (x_t - betas_t * model(x_t, t) / sqrt_one_minus_alphas_cumprod_t).to(device)
+        # 用copula生成
 
         z = torch.randn_like(x_t).to(device)
         # posterior_variance_t = self.posterior_variance[t].to(device)
@@ -206,9 +213,10 @@ class DDPM:
 
 
     @torch.no_grad()
-    def p_sample_loop(self, model):
+    def p_sample_loop(self, x_start, model):
         # 从白噪声开始恢复样本
-        x = torch.randn(self.input_shape).to(device)
+        # input_shape = x.shape
+        x = torch.randn_like(x_start).to(device)
         x_seq = [x] # 每生成一个样本就加入进去
         for t in reversed(range(self.time_steps)):
             x = self.p_sample(model, x, t)
@@ -279,7 +287,9 @@ def train():
 
 if __name__ == '__main__':
     # x_seq = train()
-    train()
+    # train()
+    ddpm = DDPM(time_steps=100, beta_schedule='sigmoid')
+    print(ddpm.sqrt_alphas_cumprod.shape)
 
 
 

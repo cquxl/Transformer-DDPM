@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-
+#
 # from attn import DiffusionAnomalyAttention, DiffusionAttentionLayer
 # from embedding import Embedding, SinusoidalPositionEmbeddings
 # from ddpm import BetaSchedule
@@ -144,8 +144,8 @@ if __name__ == '__main__':
                                  dropout=0.0, activation='gelu', output_attention=True).to(device)
     score,series, prior,_ = model(x,sqrt_alphas_cumprod,t)
     print(score.shape)
-    series_loss = 0.0
-    prior_loss = 0.0
+    # series_loss = 0.0
+    # prior_loss = 0.0
 
 
 

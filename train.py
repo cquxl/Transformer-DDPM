@@ -199,7 +199,7 @@ def train():
             # 取平均值
 
             # loss1_list.append((rec_loss - k * series_loss).item())
-            loss1 = rec_loss - k * series_loss
+            loss1 = rec_loss - k * series_loss # 代码detach的是p，结果论文写的是detach的S
             loss2 = rec_loss + k * prior_loss
             loss1_list.append(loss1.item())
             loss2_list.append(loss2.item())
@@ -341,13 +341,14 @@ def test(model):
         # 注意你需要p_sample回去
         x_seq = p_sample_loop(model, input)
         x_0 = x_seq[-1]
-        loss = torch.mean(criterion(input, x_0), dim=-1) # 计算原始mse损失
+        loss = torch.mean(criterion(input, x_0), dim=-1) # 计算原始mse损失 # [64,100]
 
 
         series_loss = 0.0
         prior_loss = 0.0
         for u in range(len(prior)):
             if u == 0:
+                # [64,100] # 对头求平均
                 series_loss = my_kl_loss(series[u], (
                         prior[u] / torch.unsqueeze(torch.sum(prior[u], dim=-1), dim=-1).repeat(1, 1, 1,
                                                                                                win_size)).detach()) * temperature
@@ -363,7 +364,7 @@ def test(model):
                     (prior[u] / torch.unsqueeze(torch.sum(prior[u], dim=-1), dim=-1).repeat(1, 1, 1,
                                                                                             win_size)),
                     series[u].detach()) * temperature
-        metric = torch.softmax((-series_loss - prior_loss), dim=-1)
+        metric = torch.softmax((-series_loss - prior_loss), dim=-1) # [64,100]
         cri = metric * loss # 这里的loss应该改为nosie的所有损失，因为是拟合noise
         # cri = metric * loss_noise
         cri = cri.detach().cpu().numpy()
