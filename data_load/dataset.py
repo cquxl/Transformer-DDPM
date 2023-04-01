@@ -84,21 +84,25 @@ class MSLSeqDataset(Dataset):
             return (self.train.shape[0] - self.win_size) // self.slide_step + 1
         elif self.mode == "val":
             return (self.val.shape[0] - self.win_size) // self.slide_step + 1
+        elif (self.mode == 'test'):
+            return (self.val.shape[0] - self.win_size) // self.slide_step + 1
         else:
             return (self.val.shape[0] - self.win_size) // self.slide_step + 1
 
     def __getitem__(self, index):
         # 注意到有滑动步数，那么其实每一个序列都是从原始序列的index*slide_step的索引开始走的
-        org_index = index * self.slide_step
+        index = index * self.slide_step
         if self.mode == "train":
-            return np.float32(self.train[org_index:org_index + self.win_size]), \
-                np.float32(self.test_labels[0:self.win_size])
-        elif self.mode == 'val':
-            return np.float32(self.val[org_index:org_index + self.win_size]), \
-                np.float32(self.test_labels[org_index:org_index + self.win_size])
+            return np.float32(self.train[index:index + self.win_size]), np.float32(self.test_labels[0:self.win_size])
+        elif (self.mode == 'val'):
+            return np.float32(self.val[index:index + self.win_size]), np.float32(self.test_labels[0:self.win_size])
+        elif (self.mode == 'test'):
+            return np.float32(self.val[index:index + self.win_size]), np.float32(
+                self.test_labels[index:index + self.win_size])
         else:
-            return np.float32(self.val[org_index:org_index + self.win_size]), \
-                np.float32(self.test_labels[org_index:org_index + self.win_size])
+            return np.float32(self.val[
+                              index // self.slide_step * self.win_size:index // self.slide_step * self.win_size + self.win_size]), np.float32(
+                self.test_labels[index // self.slide_step * self.win_size:index // self.slide_step * self.win_size + self.win_size])
 
 
 class PSMSeqDataset(Dataset):
@@ -157,22 +161,25 @@ class PSMSeqDataset(Dataset):
             return (self.train.shape[0] - self.win_size) // self.slide_step + 1
         elif self.mode == "val":
             return (self.val.shape[0] - self.win_size) // self.slide_step + 1
+        elif (self.mode == 'test'):
+            return (self.val.shape[0] - self.win_size) // self.slide_step + 1
         else:
             return (self.val.shape[0] - self.win_size) // self.slide_step + 1
 
     def __getitem__(self, index):
         # 注意到有滑动步数，那么其实每一个序列都是从原始序列的index*slide_step的索引开始走的
-        org_index = index * self.slide_step
+        index = index * self.slide_step
         if self.mode == "train":
-            return np.float32(self.train[org_index:org_index + self.win_size]), \
-                np.float32(self.test_labels[0:self.win_size])
-        elif self.mode == 'val':
-            return np.float32(self.val[org_index:org_index + self.win_size]), \
-                np.float32(self.test_labels[org_index:org_index + self.win_size])
+            return np.float32(self.train[index:index + self.win_size]), np.float32(self.test_labels[0:self.win_size])
+        elif (self.mode == 'val'):
+            return np.float32(self.val[index:index + self.win_size]), np.float32(self.test_labels[0:self.win_size])
+        elif (self.mode == 'test'):
+            return np.float32(self.val[index:index + self.win_size]), np.float32(
+                self.test_labels[index:index + self.win_size])
         else:
-            return np.float32(self.val[org_index:org_index + self.win_size]), \
-                np.float32(self.test_labels[org_index:org_index + self.win_size])
-
+            return np.float32(self.val[
+                              index // self.slide_step * self.win_size:index // self.slide_step * self.win_size + self.win_size]), np.float32(
+                self.test_labels[index // self.slide_step * self.win_size:index // self.slide_step * self.win_size + self.win_size])
 
 class SMAPSeqDataset(Dataset):
     """
@@ -233,24 +240,24 @@ class SMAPSeqDataset(Dataset):
             return (self.train.shape[0] - self.win_size) // self.slide_step + 1
         elif self.mode == "val":
             return (self.val.shape[0] - self.win_size) // self.slide_step + 1
+        elif (self.mode == 'test'):
+            return (self.val.shape[0] - self.win_size) // self.slide_step + 1
         else:
             return (self.val.shape[0] - self.win_size) // self.slide_step + 1
 
     def __getitem__(self, index):
         # 注意到有滑动步数，那么其实每一个序列都是从原始序列的index*slide_step的索引开始走的
-        org_index = index * self.slide_step
+        index = index * self.slide_step
         if self.mode == "train":
-            return np.float32(self.train[org_index:org_index + self.win_size]), \
-                np.float32(self.test_labels[0:self.win_size])
-        elif self.mode == 'val':
-            return np.float32(self.val[org_index:org_index + self.win_size]), \
-                np.float32(self.test_labels[0:self.win_size])
-        elif self.mode == 'test':
-            return np.float32(self.val[org_index:org_index + self.win_size]), \
-                np.float32(self.test_labels[org_index:org_index + self.win_size])
+            return np.float32(self.train[index:index + self.win_size]), np.float32(self.test_labels[0:self.win_size])
+        elif (self.mode == 'val'):
+            return np.float32(self.val[index:index + self.win_size]), np.float32(self.test_labels[0:self.win_size])
+        elif (self.mode == 'test'):
+            return np.float32(self.val[index:index + self.win_size]), np.float32(
+                self.test_labels[index:index + self.win_size])
         else:
-            np.float32(self.val[
-                       index // self.slide_step * self.win_size:index // self.slide_step * self.win_size + self.win_size]), np.float32(
+            return np.float32(self.val[
+                              index // self.slide_step * self.win_size:index // self.slide_step * self.win_size + self.win_size]), np.float32(
                 self.test_labels[index // self.slide_step * self.win_size:index // self.slide_step * self.win_size + self.win_size])
 
 
@@ -314,26 +321,25 @@ class SMDSeqDataset(Dataset):
             return (self.train.shape[0] - self.win_size) // self.slide_step + 1
         elif self.mode == "val":
             return (self.val.shape[0] - self.win_size) // self.slide_step + 1
+        elif (self.mode == 'test'):
+            return (self.val.shape[0] - self.win_size) // self.slide_step + 1
         else:
             return (self.val.shape[0] - self.win_size) // self.slide_step + 1
 
     def __getitem__(self, index):
         # 注意到有滑动步数，那么其实每一个序列都是从原始序列的index*slide_step的索引开始走的
-        org_index = index * self.slide_step
+        index = index * self.slide_step
         if self.mode == "train":
-            return np.float32(self.train[org_index:org_index + self.win_size]), \
-                np.float32(self.test_labels[0:self.win_size])
-        elif self.mode == 'val':
-            return np.float32(self.val[org_index:org_index + self.win_size]), \
-                np.float32(self.test_labels[self.test_labels[0:self.win_size]])
-        elif self.mode == 'test':
-            return np.float32(self.val[org_index:org_index + self.win_size]), \
-                np.float32(self.test_labels[org_index:org_index + self.win_size])
+            return np.float32(self.train[index:index + self.win_size]), np.float32(self.test_labels[0:self.win_size])
+        elif (self.mode == 'val'):
+            return np.float32(self.val[index:index + self.win_size]), np.float32(self.test_labels[0:self.win_size])
+        elif (self.mode == 'test'):
+            return np.float32(self.val[index:index + self.win_size]), np.float32(
+                self.test_labels[index:index + self.win_size])
         else:
             return np.float32(self.val[
-                              org_index // self.slide_step * self.win_size:org_index // self.slide_step * self.win_size + self.win_size]), np.float32(
-                self.test_labels[org_index // self.slide_step * self.win_size:org_index // self.slide_step * self.win_size + self.win_size])
-
+                              index // self.slide_step * self.win_size:index // self.slide_step * self.win_size + self.win_size]), np.float32(
+                self.test_labels[index // self.slide_step * self.win_size:index // self.slide_step * self.win_size + self.win_size])
 
 
 
@@ -373,10 +379,10 @@ class AnomalyDataset:
     def MSLDataset(self, data_path='./data/MSL'):
         return MSLSeqDataset(data_path, self.win_size, self.slide_step, self.transform)
 
-    def PSMDataset(self, data_path='./data/PSM'):
+    def PSMDataset(self, data_path='../data/PSM'):
         return PSMSeqDataset(data_path, self.win_size, self.slide_step, self.transform)
 
-    def SMAPDataset(self, data_path='./data/SMAP'):
+    def SMAPDataset(self, data_path='../data/SMAP'):
         return SMAPSeqDataset(data_path, self.win_size, self.slide_step, self.transform)
 
     def SMDDataset(self, data_path='./data/SMD'):
@@ -385,4 +391,10 @@ class AnomalyDataset:
 
 if __name__ == '__main__':
     print('--------------MSL数据集------------------')
-    msl_data_loader = AnomalyDataset().MSLDataset()
+    psm_dataset = PSMSeqDataset(data_path='../data/PSM', win_size=100, slide_step=100, mode='train', transform=True)
+    print(psm_dataset[0])
+    # psm_data_loader = AnomalyDataset().PSMDataset()
+    # print(next(iter(psm_data_loader)))
+    smap_data_loader = get_data_loader('../data/SMAP', batch_size=128, win_size=100, slide_step=100, mode='train',
+                                      transform=True, dataset='SMAP')
+    print(next(iter(smap_data_loader)))

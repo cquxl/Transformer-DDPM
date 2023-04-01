@@ -19,29 +19,29 @@ def make_parser():
     # 输出的文件夹
     parser.add_argument("--output_dir", type=str, default='./TransformerDDPM_outputs')  # 实验名字
     # 实验名字SN:Standard Norm, GC:Gaussian Copula, GC-t(Gaussian Copula+time_corr)
-    parser.add_argument("-expn", "--experiment-name", type=str, default='Transformer-DDPM331-3-GC-B128-E150-noise-lr0.01')  # 实验名字
+    parser.add_argument("-expn", "--experiment-name", type=str, default='SMAP401-3-GC-B128-E150-noise-lr0.001-T1000')  # 实验名字
     # 模型名字
     parser.add_argument("-n", "--name", type=str, default=None, help="model name")  # 模型名字
 
     # 数据集
-    parser.add_argument('--data_name', type=str, default='PSM')
-    parser.add_argument('--data_path', type=str, default='./data/PSM')
+    parser.add_argument('--data_name', type=str, default='SMAP')
+    parser.add_argument('--data_path', type=str, default='./data/SMAP')
 
     # 模型相关参数
 
-    ## 扩散过程
+    ## 扩散过程Standard Norm、Gaussian Copula
     parser.add_argument('--copula', type=str, default='Gaussian Copula', help='the copula method of diffusion process')
     parser.add_argument('--corr', type=str, default='feature corr', help='the corr kind of diffusion process')
-    parser.add_argument('-T','--time_steps', type=int, default='100', help='time steps of diffusion process')
+    parser.add_argument('-T','--time_steps', type=int, default='1000', help='time steps of diffusion process')
 
     ## Diffusion Transformer
-    parser.add_argument('-lr', type=float, default=1e-2, help='learning rate of Diffusion Transformer')
+    parser.add_argument('-lr', type=float, default=1e-3, help='learning rate of Diffusion Transformer')
     parser.add_argument('-b', '--batch_size',type=int, default=128, help='batch size')
 
     # rmbda 扩散关联差异的系数
     parser.add_argument('--k', type=int, default=3)
     # 异常阈值ratio
-    parser.add_argument('--anomaly_ratio', type=int, default=4)
+    parser.add_argument('--anomaly_ratio', type=int, default=3)
     # 计算异常分数是否采用逆转的x来计算mse，否则是用噪音的mse
     parser.add_argument('--reverse', default=False, action="store_true", help="caluculate mse of anamaly score by reverse x")
 

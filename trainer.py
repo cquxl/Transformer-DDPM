@@ -125,9 +125,11 @@ class Trainer:
 
         input = input_data.to(self.device)
         batch_size = input.shape[0]
+        # t = torch.randint(0, self.args.time_steps,
+        #                   size=(batch_size // 2,))
+        # t = torch.cat([t, self.args.time_steps - 1 - t], dim=0)  # t的形状（bz）
         t = torch.randint(0, self.args.time_steps,
-                          size=(batch_size // 2,))
-        t = torch.cat([t, self.args.time_steps - 1 - t], dim=0)  # t的形状（bz）
+                          size=(batch_size // 1,))
         t = t.unsqueeze(-1).to(self.device)  # t的形状（bz,1）
 
         # e = torch.randn_like(input).to(self.device)

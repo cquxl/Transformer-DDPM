@@ -92,8 +92,10 @@ class Evaluator:
                 # imgs = imgs.type(tensor_type)
                 input = input_data.type(tensor_type)
                 batch_size = input.shape[0]
-                t = torch.randint(0, self.args.time_steps, size=(batch_size // 2,))
-                t = torch.cat([t, self.args.time_steps - 1 - t], dim=0)  # t的形状（bz）
+                # t = torch.randint(0, self.args.time_steps, size=(batch_size // 2,))
+                # t = torch.cat([t, self.args.time_steps - 1 - t], dim=0)  # t的形状（bz）
+                t = torch.randint(0, self.args.time_steps,
+                                  size=(batch_size // 1,))
                 t = t.unsqueeze(-1).to(self.device)  # t的形状（bz,1）
                 e = get_copula_noise(input, type=self.args.copula, mode=self.args.corr).to(self.device)
                 x_t = self.ddpm.q_sample(input, t, noise=e).to(self.device)
@@ -147,8 +149,10 @@ class Evaluator:
             with torch.no_grad():
                 input = input_data.type(tensor_type)
                 batch_size = input.shape[0]
-                t = torch.randint(0, self.args.time_steps, size=(batch_size // 2,))
-                t = torch.cat([t, self.args.time_steps - 1 - t], dim=0)  # t的形状（bz）
+                # t = torch.randint(0, self.args.time_steps, size=(batch_size // 2,))
+                # t = torch.cat([t, self.args.time_steps - 1 - t], dim=0)  # t的形状（bz）
+                t = torch.randint(0, self.args.time_steps,
+                                  size=(batch_size // 1,))
                 t = t.unsqueeze(-1).to(self.device)  # t的形状（bz,1）
                 e = get_copula_noise(input, type=self.args.copula, mode=self.args.corr).to(self.device)
                 x_t = self.ddpm.q_sample(input, t, noise=e).to(self.device)
@@ -252,6 +256,14 @@ class Evaluator:
             # x_seq.append(x.cpu().numpy())
             x_seq.append(x)
         return x_seq
+
+
+# if __name__ == "__main__":
+#     thre_loader = get_data_loader('./data/MSL', 128, win_size=100,
+#                                             slide_step=100, mode='thre', transform=True,
+#                                             dataset='MSL')
+#     # print(len(thre_loader))
+#     print(next(iter(thre_loader)))
 
 
 
