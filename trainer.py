@@ -70,6 +70,11 @@ class Trainer:
 
         self.sw = SummaryWriter(logdir=self.file_name, flush_secs=5)
         self.best_loss = 0.0
+        self.best_f1 = 0.0
+        self.accuracy = 0.0
+        self.precision = 0.0
+        self.recall = 0.0
+        self.anomaly_ratio = self.args.anomaly_ratio
         self.save_history_ckpt = True
 
         if (not os.path.exists(self.file_name)):
@@ -94,7 +99,10 @@ class Trainer:
         logger.info(
             "Training of experiment is done and the best loss is {:.2f}".format(self.best_loss)
         )
-
+        logger.info(
+            "anmaly_ratio:{.2f}, Accuracy:{:.2f}, Precision:{:.2f}, Recall:{:.2f}, best F1:{:.2f}".format(self.anomaly_ratio, self.accuracy, self.precision,
+                                                                                                          self.recall, self.best_f1)
+        )
     def train_in_epoch(self):
         for self.epoch in range(self.start_epoch, self.max_epoch):
             self.before_epoch()
@@ -227,9 +235,16 @@ class Trainer:
             evalmodel = self.model
         with adjust_status(evalmodel, training=False):
             outputs_data = self.evaluator.evaluate(evalmodel)
-            thre, accuracy, precision, recall, f_score = self.evaluator.detection_adjustment(evalmodel, anomaly_state=False)
+            thre, anomaly_ratio, accuracy, precision, recall, f_score = self.evaluator.detection_adjustment(evalmodel, anomaly_state=False)
         update_best_ckpt = outputs_data['noise_loss'] < self.best_loss
+        update_best_f1 = f_score > self.best_f1
+        if update_best_f1:
+            self.accuracy = accuracy
+            self.precision = precision
+            self.recall = recall
+            self.anomaly_ratio = anomaly_ratio
         self.best_loss = min(outputs_data['noise_loss'], self.best_loss)
+        self.best_f1 = max(self.best_f1, f_score)
         if self.rank == 0:
             self.sw.add_scalar('val/loss1', outputs_data['loss1'], self.epoch+1)
             self.sw.add_scalar('val/loss2', outputs_data['loss2'], self.epoch + 1)

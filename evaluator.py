@@ -198,21 +198,24 @@ class Evaluator:
         train_energy, _ = self.get_anomaly_score(model, self.train_loader, add_labels=False) # 不需要labels
         test_energy, test_labels = self.get_anomaly_score(model, self.thre_loader, add_labels=True)
         combined_energy = np.concatenate([train_energy, test_energy], axis=0)
-        anomaly_ratio = self.get_anomaly_ratio_by_kmeans(combined_energy) # 比例乘了100
+        if self.args.kmeans:
+            anomaly_ratio = self.get_anomaly_ratio_by_kmeans(combined_energy) # 比例乘了100
+        else:
+            anomaly_ratio = self.args.anomaly_ratio
         print(f'anmaly_ratio:{anomaly_ratio}')
         # thre = np.percentile(combined_energy, 100 - self.args.anomaly_ratio)
         thre = np.percentile(combined_energy, 100 - anomaly_ratio)
         # 寻找异常
         pred = (test_energy > thre).astype(int) # (total,)
         gt = test_labels.astype(int)
-        return thre, pred, gt
+        return thre, anomaly_ratio, pred, gt
 
 
     def detection_adjustment(self, model, anomaly_state=False): # trick
         """
         返回accuracy, precision, recall, f_score
         """
-        thre, pred, gt = self.get_thre(model)
+        thre, anomaly_ratio, pred, gt = self.get_thre(model)
         for i in range(len(gt)):
             if gt[i] == 1 and pred[i] == 1 and not anomaly_state:
                 anomaly_state = True # 确定为异常
@@ -237,7 +240,7 @@ class Evaluator:
         # 计算Accuracy, prec, recall, f_score
         accuracy = accuracy_score(gt, pred)
         precision, recall, f_score, support = precision_recall_fscore_support(gt, pred,average='binary')
-        return thre, accuracy, precision, recall, f_score
+        return thre, anomaly_ratio, accuracy, precision, recall, f_score
 
     @torch.no_grad()
     def p_sample(self, model, x_t, t):
