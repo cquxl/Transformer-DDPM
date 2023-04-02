@@ -19,7 +19,7 @@ def make_parser():
     # 输出的文件夹
     parser.add_argument("--output_dir", type=str, default='./TransformerDDPM_outputs1')  # 实验名字
     # 实验名字SN:Standard Norm, GC:Gaussian Copula, GC-t(Gaussian Copula+time_corr)
-    parser.add_argument("-expn", "--experiment-name", type=str, default='PSM402-3-GC-B128-E150-noise-lr0.001-T1000-r-kmeans')  # 实验名字
+    parser.add_argument("-expn", "--experiment-name", type=str, default='PSM402-3-GC-B128-E150-noise-lr0.001-T1000-r1')  # 实验名字
     # 模型名字
     parser.add_argument("-n", "--name", type=str, default=None, help="model name")  # 模型名字
 
@@ -42,7 +42,7 @@ def make_parser():
     parser.add_argument('--k', type=int, default=3)
     # 异常阈值ratio, kmeans为False，默认使用anomaly_ratio,否则使用kmeans自动计算
     parser.add_argument('--anomaly_ratio', type=int, default=1) # ratio需要调整，可以根据异常比例来调整
-    parser.add_argument('--kmeans', default=True, action="store_true",help="calculate the anomaly ratio by kmeans")  # ratio需要调整，可以根据异常比例来调整
+    parser.add_argument('--kmeans', default=False, action="store_true",help="calculate the anomaly ratio by kmeans")  # ratio需要调整，可以根据异常比例来调整
     # 计算异常分数是否采用逆转的x来计算mse，否则是用噪音的mse
     parser.add_argument('--reverse', default=False, action="store_true", help="caluculate mse of anamaly score by reverse x")
 

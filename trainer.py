@@ -97,11 +97,9 @@ class Trainer:
 
     def after_train(self):
         logger.info(
-            "Training of experiment is done and the best loss is {:.2f}".format(self.best_loss)
-        )
-        logger.info(
-            "anmaly_ratio:{.2f}, Accuracy:{:.2f}, Precision:{:.2f}, Recall:{:.2f}, best F1:{:.2f}".format(self.anomaly_ratio, self.accuracy, self.precision,
-                                                                                                          self.recall, self.best_f1)
+            "Training of experiment is done and the best loss is {:.2f}".format(self.best_loss) +
+            ("anmaly_ratio:{.2f}, Accuracy:{:.2f}, Precision:{:.2f}, Recall:{:.2f}, best F1:{:.2f}".format(self.anomaly_ratio, self.accuracy, self.precision,
+                                                                                                           self.recall, self.best_f1))
         )
     def train_in_epoch(self):
         for self.epoch in range(self.start_epoch, self.max_epoch):
