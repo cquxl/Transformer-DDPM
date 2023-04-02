@@ -17,15 +17,15 @@ def make_parser():
     '''
     parser = argparse.ArgumentParser('Transfomer-DDPM parser')
     # 输出的文件夹
-    parser.add_argument("--output_dir", type=str, default='./TransformerDDPM_outputs')  # 实验名字
+    parser.add_argument("--output_dir", type=str, default='./TransformerDDPM_outputs1')  # 实验名字
     # 实验名字SN:Standard Norm, GC:Gaussian Copula, GC-t(Gaussian Copula+time_corr)
-    parser.add_argument("-expn", "--experiment-name", type=str, default='SMAP401-3-GC-B128-E150-noise-lr0.001-T1000')  # 实验名字
+    parser.add_argument("-expn", "--experiment-name", type=str, default='SMD402-3-GC-B128-E150-noise-lr0.001-T1000-r-kmeans')  # 实验名字
     # 模型名字
     parser.add_argument("-n", "--name", type=str, default=None, help="model name")  # 模型名字
 
     # 数据集
-    parser.add_argument('--data_name', type=str, default='SMAP')
-    parser.add_argument('--data_path', type=str, default='./data/SMAP')
+    parser.add_argument('--data_name', type=str, default='SMD')
+    parser.add_argument('--data_path', type=str, default='./data/SMD')
 
     # 模型相关参数
 
@@ -36,12 +36,12 @@ def make_parser():
 
     ## Diffusion Transformer
     parser.add_argument('-lr', type=float, default=1e-3, help='learning rate of Diffusion Transformer')
-    parser.add_argument('-b', '--batch_size',type=int, default=128, help='batch size')
+    parser.add_argument('-b', '--batch_size',type=int, default=125, help='batch size')
 
     # rmbda 扩散关联差异的系数
     parser.add_argument('--k', type=int, default=3)
     # 异常阈值ratio
-    parser.add_argument('--anomaly_ratio', type=int, default=3)
+    parser.add_argument('--anomaly_ratio', type=int, default=0.1) # ratio需要调整，可以根据异常比例来调整
     # 计算异常分数是否采用逆转的x来计算mse，否则是用噪音的mse
     parser.add_argument('--reverse', default=False, action="store_true", help="caluculate mse of anamaly score by reverse x")
 
@@ -53,13 +53,13 @@ def make_parser():
     parser.add_argument("-c", "--ckpt", default=None, type=str, help="checkpoint file") # 用于加载模型的pth文件
     parser.add_argument("-e", "--start_epoch", default=0, type=int, help="resume training start epoch")
 
-    parser.add_argument('-epochs','--num_epochs', type=int, default=150)
+    parser.add_argument('-epochs','--num_epochs', type=int, default=100)
     parser.add_argument('--win_size', type=int, default=100) # 时间窗口
     parser.add_argument('--slide_step', type=int, default=100)  # 滑动步长
 
     # 可保留，也可在程序中判断
-    parser.add_argument('--input_c', type=int, default=25)
-    parser.add_argument('--output_c', type=int, default=25)
+    parser.add_argument('--input_c', type=int, default=38)
+    parser.add_argument('--output_c', type=int, default=38)
 
     # 模型训练模式，可保留
     parser.add_argument('--mode', type=str, default='train', choices=['train', 'test'])

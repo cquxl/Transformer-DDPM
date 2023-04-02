@@ -12,6 +12,7 @@ from sklearn.metrics import precision_recall_fscore_support
 from sklearn.metrics import accuracy_score
 import torch.nn as nn
 from data_load import get_data_loader, DataPrefetcher
+from sklearn.cluster import KMeans
 def time_synchronized():
     """pytorch-accurate time"""
     if torch.cuda.is_available():
@@ -183,12 +184,24 @@ class Evaluator:
 
 
         return attens_energy, labels_list
+    def get_anomaly_ratio_by_kmeans(self, combined_energy):
+        combined_energy = combined_energy.reshape(-1,1)
+        class_pred = KMeans(n_clusters=2,random_state=42).fit_predict(combined_energy)
+        # 计算anomaly_ratio
+        anomaly_ratio = min(sum(class_pred) / len(class_pred), 1-sum(class_pred) / len(class_pred))
+        return anomaly_ratio*100
+
+
+
 
     def get_thre(self, model):
         train_energy, _ = self.get_anomaly_score(model, self.train_loader, add_labels=False) # 不需要labels
         test_energy, test_labels = self.get_anomaly_score(model, self.thre_loader, add_labels=True)
         combined_energy = np.concatenate([train_energy, test_energy], axis=0)
-        thre = np.percentile(combined_energy, 100 - self.args.anomaly_ratio)
+        anomaly_ratio = self.get_anomaly_ratio_by_kmeans(combined_energy) # 比例乘了100
+        print(f'anmaly_ratio:{anomaly_ratio}')
+        # thre = np.percentile(combined_energy, 100 - self.args.anomaly_ratio)
+        thre = np.percentile(combined_energy, 100 - anomaly_ratio)
         # 寻找异常
         pred = (test_energy > thre).astype(int) # (total,)
         gt = test_labels.astype(int)
@@ -258,12 +271,12 @@ class Evaluator:
         return x_seq
 
 
-# if __name__ == "__main__":
-#     thre_loader = get_data_loader('./data/MSL', 128, win_size=100,
-#                                             slide_step=100, mode='thre', transform=True,
-#                                             dataset='MSL')
-#     # print(len(thre_loader))
-#     print(next(iter(thre_loader)))
+if __name__ == "__main__":
+    thre_loader = get_data_loader('./data/SMD', 128, win_size=100,
+                                            slide_step=100, mode='train', transform=True,
+                                            dataset='SMD')
+    # print(len(thre_loader))
+    print(next(iter(thre_loader)))
 
 
 
