@@ -4,6 +4,7 @@ import time
 from collections import ChainMap, defaultdict
 from utils import get_copula_noise
 from model.ddpm import BetaSchedule, DDPM
+from model.vaeLSTM import LSTMVAE, vae_loss
 import torch.nn.functional as F
 from utils import my_kl_loss, s_p_loss, test_s_p_loss, my_noise_kl_loss
 from utils import MeterBuffer, gpu_mem_usage, mem_usage
@@ -105,34 +106,44 @@ class Evaluator:
                 is_time_record = cur_iter < len(self.dataloader) - 1 # true
                 if is_time_record:
                     start = time.time()
-
-                output, series, prior, _ = model(x_t, sqrt_alphas_cumprod, t)
+                if self.args.name == 'Transformer-DDPM':
+                    output, series, prior, _ = model(x_t, sqrt_alphas_cumprod, t)
+                elif self.args.name == 'LSTM-VAE':
+                    x_decoded_mean, z_mean, z_log_sigma = model(input)
                 if is_time_record:
                     infer_end = time_synchronized()
                     inference_time += infer_end - start
                 # 每个iter的推理时间
-                loss_noise = F.mse_loss(e, output)
-                # 用loss.py里的s_p_loss来计算
-                series_loss, prior_loss = s_p_loss(series, prior, self.args.win_size)  # 返回的是均值
-                loss1 = loss_noise - self.args.k * series_loss
-                loss2 = loss_noise + self.args.k * prior_loss
-                outputs = {}
-                outputs['noise_loss'] = loss_noise
-                outputs['loss1'] = loss1
-                outputs['loss2'] = loss2
+                if self.args.name == 'Transformer-DDPM':
+                    loss_noise = F.mse_loss(e, output)
+                    # 用loss.py里的s_p_loss来计算
+                    series_loss, prior_loss = s_p_loss(series, prior, self.args.win_size)  # 返回的是均值
+                    loss1 = loss_noise - self.args.k * series_loss
+                    loss2 = loss_noise + self.args.k * prior_loss
+                    outputs = {}
+                    outputs['noise_loss'] = loss_noise
+                    outputs['loss1'] = loss1
+                    outputs['loss2'] = loss2
 
-                epoch_nosie_loss.append(loss_noise.item())
-                loss_1.append(loss1.item())
-                loss_2.append(loss2.item())
-
+                    epoch_nosie_loss.append(loss_noise.item())
+                    loss_1.append(loss1.item())
+                    loss_2.append(loss2.item())
+                elif self.args.name == 'LSTM-VAE':
+                    rec_loss = vae_loss(input, x_decoded_mean, z_mean, z_log_sigma)
+                    outputs = {}
+                    outputs['rec_loss'] = rec_loss
+                    epoch_nosie_loss.append(rec_loss.item())
                 self.meter.update(
                     infer_time=infer_end - start,
                     inference_time=inference_time,
                     **outputs,
                 )
-        output_data['noise_loss'] = np.average(epoch_nosie_loss)
-        output_data['loss1'] = np.average(loss_1)
-        output_data['loss2'] = np.average(loss_2)
+        if self.args.name == 'Transformer-DDPM':
+            output_data['noise_loss'] = np.average(epoch_nosie_loss)
+            output_data['loss1'] = np.average(loss_1)
+            output_data['loss2'] = np.average(loss_2)
+        elif self.args.name == 'LSTM-VAE':
+            output_data['rec_loss'] = np.average(epoch_nosie_loss)
         return output_data
     def get_anomaly_score(self, model, loader, add_labels=False):
         tensor_type = torch.cuda.FloatTensor
@@ -158,20 +169,23 @@ class Evaluator:
                 e = get_copula_noise(input, type=self.args.copula, mode=self.args.corr).to(self.device)
                 x_t = self.ddpm.q_sample(input, t, noise=e).to(self.device)
                 sqrt_alphas_cumprod = self.ddpm.sqrt_alphas_cumprod.to(self.device)
-                output, series, prior, _ = model(x_t, sqrt_alphas_cumprod, t)
-                noise_loss = torch.mean(criterion(e, output), dim=-1) # [64,100]
-                series_loss, prior_loss = test_s_p_loss(series, prior,self.args.win_size, temperature)
-                metric = torch.softmax((-series_loss - prior_loss), dim=-1) # [64,100]
-                # noise_kl_loss = my_noise_kl_loss(e, output) # [64,100]
-                if self.args.reverse:
-                    x_seq = self.p_sample_loop(model, input)
-                    x_0 = x_seq[-1]
-                    loss = torch.mean(criterion(x_0, input), dim=-1)
-                    score = loss * metric
-                score = noise_loss * metric  # [64,100]
-                # score = torch.softmax(score, dim=-1)
-                # score = loss*metric
-                # score = torch.softmax(noise_kl_loss,dim=-1) * metric
+                if self.args.name == 'Transformer-DDPM':
+                    output, series, prior, _ = model(x_t, sqrt_alphas_cumprod, t)
+                    noise_loss = torch.mean(criterion(e, output), dim=-1) # [64,100]
+                    series_loss, prior_loss = test_s_p_loss(series, prior,self.args.win_size, temperature)
+                    metric = torch.softmax((-series_loss - prior_loss), dim=-1) # [64,100]
+                    if self.args.reverse:
+                        x_seq = self.p_sample_loop(model, input)
+                        x_0 = x_seq[-1]
+                        loss = torch.mean(criterion(x_0, input), dim=-1)
+                        score = loss * metric
+                    score = noise_loss * metric
+                elif self.args.name == 'LSTM-VAE':
+                    x_decoded_mean, z_mean, z_log_sigma = model(input)
+                    x_loss = torch.mean(criterion(input, x_decoded_mean), dim=-1)
+                    kl_loss = -0.5 *(1 + z_log_sigma - z_mean.pow(2) - z_log_sigma.exp())
+                    metric = torch.softmax(kl_loss, dim=-1) # [64,100]
+                    score = x_loss * metric
                 score = score.detach().cpu().numpy()
                 attens_energy.append(score)
                 if add_labels:

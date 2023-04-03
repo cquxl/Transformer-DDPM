@@ -17,11 +17,11 @@ def make_parser():
     '''
     parser = argparse.ArgumentParser('Transfomer-DDPM parser')
     # 输出的文件夹
-    parser.add_argument("--output_dir", type=str, default='./TransformerDDPM_outputs1')  # 实验名字
+    parser.add_argument("--output_dir", type=str, default='./LSTMVAE_outputs1')  # 实验名字
     # 实验名字SN:Standard Norm, GC:Gaussian Copula, GC-t(Gaussian Copula+time_corr)
     parser.add_argument("-expn", "--experiment-name", type=str, default='SMAP402-3-GC-B128-E150-noise-lr0.001-T1000-r-kmeans')  # 实验名字
     # 模型名字
-    parser.add_argument("-n", "--name", type=str, default=None, help="model name")  # 模型名字
+    parser.add_argument("-n", "--name", type=str, default='LSTM-VAE', help="model name")  # 模型名字
 
     # 数据集
     parser.add_argument('--data_name', type=str, default='SMAP')

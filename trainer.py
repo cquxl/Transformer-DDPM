@@ -11,6 +11,7 @@ import shutil
 
 from model.ddpm import BetaSchedule, DDPM
 from model.TransformerDDPM import DiffusionTransformer
+from model.vaeLSTM import LSTMVAE, vae_loss
 from data_load import get_data_loader, DataPrefetcher
 from tensorboardX import SummaryWriter
 from torch.nn.parallel import DistributedDataParallel as DDP
@@ -75,7 +76,7 @@ class Trainer:
         self.precision = 0.0
         self.recall = 0.0
         self.anomaly_ratio = self.args.anomaly_ratio
-        self.save_history_ckpt = True
+        self.save_history_ckpt = False
 
         if (not os.path.exists(self.file_name)):
             os.makedirs(self.file_name, exist_ok=True)
@@ -150,23 +151,34 @@ class Trainer:
         data_end_time = time.time()
 
         with torch.cuda.amp.autocast(enabled=self.amp_training): # 混合精度训练
-            output, series, prior, _ = self.model(x_t, sqrt_alphas_cumprod, t)
+            if self.args.name == 'Transformer-DDPM':
+                output, series, prior, _ = self.model(x_t, sqrt_alphas_cumprod, t)
+            elif self.args.name == 'LSTM-VAE':
+                x_decoded_mean, z_mean, z_log_sigma = self.model(input)
+        if self.args.name == 'Transformer-DDPM':
+            loss_noise = F.mse_loss(e, output)
+            # 用loss.py里的s_p_loss来计算
+            series_loss, prior_loss = s_p_loss(series, prior, self.win_size) # 返回的是均值
 
-        loss_noise = F.mse_loss(e, output)
-        # 用loss.py里的s_p_loss来计算
-        series_loss, prior_loss = s_p_loss(series, prior, self.win_size) # 返回的是均值
-
-        loss1 = loss_noise - self.k * series_loss
-        loss2 = loss_noise + self.k * prior_loss
-        outputs={}
-        outputs['noise_loss'] = loss_noise
-        outputs['loss1'] = loss1
-        outputs['loss2'] = loss2
-        self.best_loss = loss_noise
-        self.optimizer.zero_grad()
-        self.scaler.scale(loss1).backward(retain_graph=True)
-        self.scaler.scale(loss2).backward()
-        self.scaler.step(self.optimizer)
+            loss1 = loss_noise - self.k * series_loss
+            loss2 = loss_noise + self.k * prior_loss
+            outputs={}
+            outputs['noise_loss'] = loss_noise
+            outputs['loss1'] = loss1
+            outputs['loss2'] = loss2
+            self.best_loss = loss_noise
+            self.optimizer.zero_grad()
+            self.scaler.scale(loss1).backward(retain_graph=True)
+            self.scaler.scale(loss2).backward()
+            self.scaler.step(self.optimizer)
+        elif self.args.name == 'LSTM-VAE':
+            rec_loss = vae_loss(input, x_decoded_mean, z_mean, z_log_sigma)
+            outputs = {}
+            outputs['rec_loss'] = rec_loss
+            self.best_loss = rec_loss
+            self.optimizer.zero_grad()
+            self.scaler.scale(rec_loss).backward()
+            self.scaler.step(self.optimizer)
         if self.use_model_ema:
             self.ema_model.update(self.model)
         lr = self.lr_scheduler.update_lr(self.progress_in_iter + 1)
@@ -233,19 +245,28 @@ class Trainer:
         with adjust_status(evalmodel, training=False):
             outputs_data = self.evaluator.evaluate(evalmodel)
             thre, anomaly_ratio, accuracy, precision, recall, f_score = self.evaluator.detection_adjustment(evalmodel, anomaly_state=False)
-        update_best_ckpt = outputs_data['noise_loss'] < self.best_loss
+        if self.args.name == 'Transformer-DDPM':
+            update_best_ckpt = outputs_data['noise_loss'] < self.best_loss
+        elif self.args.name == 'LSTM-VAE':
+            update_best_ckpt = outputs_data['rec_loss'] < self.best_loss
         update_best_f1 = f_score > self.best_f1
         if update_best_f1:
             self.accuracy = accuracy
             self.precision = precision
             self.recall = recall
             self.anomaly_ratio = anomaly_ratio
-        self.best_loss = min(outputs_data['noise_loss'], self.best_loss)
+        if self.args.name == 'Transformer-DDPM':
+            self.best_loss = min(outputs_data['noise_loss'], self.best_loss)
+        elif self.args.name == 'LSTM-VAE':
+            self.best_loss = min(outputs_data['rec_loss'], self.best_loss)
         self.best_f1 = max(self.best_f1, f_score)
         if self.rank == 0:
-            self.sw.add_scalar('val/loss1', outputs_data['loss1'], self.epoch+1)
-            self.sw.add_scalar('val/loss2', outputs_data['loss2'], self.epoch + 1)
-            self.sw.add_scalar('val/noise_loss', outputs_data['noise_loss'], self.epoch + 1)
+            if self.args.name == 'Transformer-DDPM':
+                self.sw.add_scalar('val/loss1', outputs_data['loss1'], self.epoch+1)
+                self.sw.add_scalar('val/loss2', outputs_data['loss2'], self.epoch + 1)
+                self.sw.add_scalar('val/noise_loss', outputs_data['noise_loss'], self.epoch + 1)
+            elif self.args.name == 'LSTM-VAE':
+                self.sw.add_scalar('val/rec_loss', outputs_data['rec_loss'], self.epoch+1)
             self.sw.add_scalar('test/thre', thre, self.epoch + 1)
             self.sw.add_scalar('test/accuracy', accuracy, self.epoch + 1)
             self.sw.add_scalar('test/precision', precision, self.epoch + 1)
@@ -274,11 +295,15 @@ class Trainer:
         pass
 
     def get_model(self):
-        self.model = DiffusionTransformer(win_size=self.args.win_size, enc_in=self.enc_in,  c_out=self.c_out,
-                                          d_model=512, n_heads=8, e_layers=3, d_ff=512, dropout=0.0,
-                                          activation='gelu', output_attention=True).to(self.device)
-
-        return self.model
+        if self.args.name == "Transformer-DDPM":
+            self.model = DiffusionTransformer(win_size=self.args.win_size, enc_in=self.enc_in,  c_out=self.c_out,
+                                              d_model=512, n_heads=8, e_layers=3, d_ff=512, dropout=0.0,
+                                              activation='gelu', output_attention=True).to(self.device)
+            return self.model
+        if self.args.name == "LSTM-VAE":
+            self.model = LSTMVAE(input_dim=self.enc_in, win_size=self.args.win_size, timesteps=self.args.time_steps,
+                                 batch_size=self.args.batch_size, intermediate_dim=32, latent_dim=100, epsilon_std=1.0).to(self.device)
+            return self.model
 
     def get_optimizer(self):
         if "optimizer" not in self.__dict__:
@@ -313,7 +338,10 @@ class Trainer:
         '''
         logger.info("args: {}".format(self.args))
         model = self.get_model()
-        self.optimizer = self.get_optimizer()
+        if self.args.name == "Transformer-DDPM":
+            self.optimizer = self.get_optimizer()
+        elif self.args.name == "LSTM-VAE":
+            self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.args.lr)
         # 注意resume过程必须要填写后才使用，否则从头训练
         if self.args.resume:
             model = self.resume_train(model) # 更新模型参数
@@ -384,8 +412,12 @@ class Trainer:
         return model
 
 if __name__ == "__main__":
-    train_loader = get_data_loader(data_path='./data/PSM', batch_size=64, win_size=100, slide_step=100, mode='train', transform=True, dataset='PSM')
-    print(next(iter(train_loader))[-1].shape)
+    # train_loader = get_data_loader(data_path='./data/PSM', batch_size=64, win_size=100, slide_step=100, mode='train', transform=True, dataset='PSM')
+    # print(next(iter(train_loader))[-1].shape)
+    x =torch.rand(64,100,25)
+    lstm_vae = LSTMVAE(input_dim=25, win_size=100, timesteps=1000, batch_size=64, intermediate_dim=32, latent_dim=100, epsilon_std=1.0)
+    x_decoded_mean, z_mean, z_log_sigma = lstm_vae(x)
+    print(x_decoded_mean.shape)
 
 
 
