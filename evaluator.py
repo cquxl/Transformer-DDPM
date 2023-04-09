@@ -146,6 +146,7 @@ class Evaluator:
             output_data['rec_loss'] = np.average(epoch_nosie_loss)
         return output_data
     def get_anomaly_score(self, model, loader, add_labels=False):
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         tensor_type = torch.cuda.FloatTensor
         model = model.eval()
         temperature = 50 # 明显是trick参数
@@ -155,6 +156,8 @@ class Evaluator:
         attens_energy = []
         progress_bar = tqdm
         labels_list = []
+        noise_list=[]
+        x_0_list = []
         for cur_iter, (input_data, labels) in enumerate(
                 progress_bar(loader)
         ):
@@ -174,12 +177,21 @@ class Evaluator:
                     noise_loss = torch.mean(criterion(e, output), dim=-1) # [64,100]
                     series_loss, prior_loss = test_s_p_loss(series, prior,self.args.win_size, temperature)
                     metric = torch.softmax((-series_loss - prior_loss), dim=-1) # [64,100]
+                    noise_list.append(noise_loss.cpu().numpy())
                     if self.args.reverse:
                         x_seq = self.p_sample_loop(model, input)
                         x_0 = x_seq[-1]
                         loss = torch.mean(criterion(x_0, input), dim=-1)
-                        score = loss * metric
-                    score = noise_loss * metric
+                        x_0_list.append(x_0.cpu().numpy())
+                        if self.args.diff_ass_dis:
+                            score = loss * metric
+                        else:
+                            score = loss
+                    else:
+                        if self.args.diff_ass_dis:
+                            score = noise_loss * metric
+                        else:
+                            score = noise_loss
                 elif self.args.name == 'LSTM-VAE':
                     x_decoded_mean, z_mean, z_log_sigma = model(input)
                     x_loss = torch.mean(criterion(input, x_decoded_mean), dim=-1)
@@ -197,8 +209,9 @@ class Evaluator:
             labels_list = np.array(labels_list)
 
 
-        return attens_energy, labels_list
+        return x_0_list, noise_list, attens_energy, labels_list
     def get_anomaly_ratio_by_kmeans(self, combined_energy):
+        combined_energy = np.nan_to_num(combined_energy)
         combined_energy = combined_energy.reshape(-1,1)
         class_pred = KMeans(n_clusters=2,random_state=42).fit_predict(combined_energy)
         # 计算anomaly_ratio
@@ -209,8 +222,8 @@ class Evaluator:
 
 
     def get_thre(self, model):
-        train_energy, _ = self.get_anomaly_score(model, self.train_loader, add_labels=False) # 不需要labels
-        test_energy, test_labels = self.get_anomaly_score(model, self.thre_loader, add_labels=True)
+        _,_,train_energy, _ = self.get_anomaly_score(model, self.train_loader, add_labels=False) # 不需要labels
+        _,_,test_energy, test_labels = self.get_anomaly_score(model, self.thre_loader, add_labels=True)
         combined_energy = np.concatenate([train_energy, test_energy], axis=0)
         if self.args.kmeans:
             anomaly_ratio = self.get_anomaly_ratio_by_kmeans(combined_energy) # 比例乘了100
@@ -230,25 +243,26 @@ class Evaluator:
         返回accuracy, precision, recall, f_score
         """
         thre, anomaly_ratio, pred, gt = self.get_thre(model)
-        for i in range(len(gt)):
-            if gt[i] == 1 and pred[i] == 1 and not anomaly_state:
-                anomaly_state = True # 确定为异常
-                for j in range(i, 0, -1):
-                    if gt[j] == 0:
-                        break
-                    else:
-                        if pred[j] == 0:
-                            pred[j] = 1
-                for j in range(i, len(gt)):
-                    if gt[j] == 0:
-                        break
-                    else:
-                        if pred[j] == 0:
-                            pred[j] = 1
-            elif gt[i] == 0:
-                anomaly_state = False
-            if anomaly_state:
-                pred[i] = 1
+        if self.args.detection:
+            for i in range(len(gt)):
+                if gt[i] == 1 and pred[i] == 1 and not anomaly_state:
+                    anomaly_state = True # 确定为异常
+                    for j in range(i, 0, -1):
+                        if gt[j] == 0:
+                            break
+                        else:
+                            if pred[j] == 0:
+                                pred[j] = 1
+                    for j in range(i, len(gt)):
+                        if gt[j] == 0:
+                            break
+                        else:
+                            if pred[j] == 0:
+                                pred[j] = 1
+                elif gt[i] == 0:
+                    anomaly_state = False
+                if anomaly_state:
+                    pred[i] = 1
         pred = np.array(pred)
         gt = np.array(gt)
         # 计算Accuracy, prec, recall, f_score
@@ -278,6 +292,7 @@ class Evaluator:
     def p_sample_loop(self, model, input):
         # 从白噪声开始恢复样本
         # input_shape = input.shape
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         x = get_copula_noise(input, type=self.args.copula, mode=self.args.corr).to(self.device)
         # 从x=e开始生成
         x_seq = [x]  # 每生成一个样本就加入进去

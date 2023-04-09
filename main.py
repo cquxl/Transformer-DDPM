@@ -17,35 +17,38 @@ def make_parser():
     '''
     parser = argparse.ArgumentParser('Transfomer-DDPM parser')
     # 输出的文件夹
-    parser.add_argument("--output_dir", type=str, default='./LSTMVAE_outputs1')  # 实验名字
+    parser.add_argument("--output_dir", type=str, default='./TransformerDDPM_final')  # 实验名字
     # 实验名字SN:Standard Norm, GC:Gaussian Copula, GC-t(Gaussian Copula+time_corr)
-    parser.add_argument("-expn", "--experiment-name", type=str, default='SMAP402-3-GC-B128-E150-noise-lr0.001-T1000-r-kmeans')  # 实验名字
+    parser.add_argument("-expn", "--experiment-name", type=str, default='MSL407-3-SN-B128-E150-noise-lr0.001-T100-r1-diffTrue-reverseTrue')  # 实验名字
     # 模型名字
-    parser.add_argument("-n", "--name", type=str, default='LSTM-VAE', help="model name")  # 模型名字
+    parser.add_argument("-n", "--name", type=str, default='Transformer-DDPM', help="model name")  # 模型名字
 
     # 数据集
-    parser.add_argument('--data_name', type=str, default='SMAP')
-    parser.add_argument('--data_path', type=str, default='./data/SMAP')
+    parser.add_argument('--data_name', type=str, default='MSL')
+    parser.add_argument('--data_path', type=str, default='./data/MSL')
 
     # 模型相关参数
 
     ## 扩散过程Standard Norm、Gaussian Copula
-    parser.add_argument('--copula', type=str, default='Gaussian Copula', help='the copula method of diffusion process')
+    parser.add_argument('--copula', type=str, default='Standard Norm', help='the copula method of diffusion process')
     parser.add_argument('--corr', type=str, default='feature corr', help='the corr kind of diffusion process')
-    parser.add_argument('-T','--time_steps', type=int, default='1000', help='time steps of diffusion process')
+    parser.add_argument('-T','--time_steps', type=int, default=1000, help='time steps of diffusion process')
 
     ## Diffusion Transformer
     parser.add_argument('-lr', type=float, default=1e-3, help='learning rate of Diffusion Transformer')
     parser.add_argument('-b', '--batch_size',type=int, default=128, help='batch size')
+    parser.add_argument('--e_layers', type=int, default=3, help='number of encoder layers')
 
     # rmbda 扩散关联差异的系数
     parser.add_argument('--k', type=int, default=3)
     # 异常阈值ratio, kmeans为False，默认使用anomaly_ratio,否则使用kmeans自动计算
     parser.add_argument('--anomaly_ratio', type=int, default=1) # ratio需要调整，可以根据异常比例来调整
-    parser.add_argument('--kmeans', default=True, action="store_true",help="calculate the anomaly ratio by kmeans")  # ratio需要调整，可以根据异常比例来调整
+    parser.add_argument('--kmeans', default=False, action="store_true",help="calculate the anomaly ratio by kmeans")  # ratio需要调整，可以根据异常比例来调整
+    parser.add_argument('--diff_ass_dis', default=True, action="store_true", help="calculate the score by adding diff_ass_dis")
     # 计算异常分数是否采用逆转的x来计算mse，否则是用噪音的mse
     parser.add_argument('--reverse', default=False, action="store_true", help="caluculate mse of anamaly score by reverse x")
 
+    parser.add_argument('--detection', default=True, action="store_true", help="detection process")
     # 有多少块gpu进行训练
     parser.add_argument('-d', '--device', type=int, default=0, help="device for training")
 
@@ -59,8 +62,8 @@ def make_parser():
     parser.add_argument('--slide_step', type=int, default=100)  # 滑动步长
 
     # 可保留，也可在程序中判断
-    parser.add_argument('--input_c', type=int, default=25)
-    parser.add_argument('--output_c', type=int, default=25)
+    parser.add_argument('--input_c', type=int, default=55)
+    parser.add_argument('--output_c', type=int, default=55)
 
     # 模型训练模式，可保留
     parser.add_argument('--mode', type=str, default='train', choices=['train', 'test'])

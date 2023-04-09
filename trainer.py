@@ -64,7 +64,7 @@ class Trainer:
 
         self.scheduler = "warmcos"
 
-        self.basic_lr_per_sequence = args.lr / args.batch_size # 1e-4/64
+        self.basic_lr_per_sequence = args.lr / 64 # 1e-4/64
 
         self.input_size = (args.win_size, args.input_c) # [100, 25]
         self.file_name = os.path.join(args.output_dir, args.experiment_name) # ./TransformerDDPM_outputs/.._lr..batch_size..
@@ -97,8 +97,13 @@ class Trainer:
             self.after_train()
 
     def after_train(self):
+        # logger.info(
+        #     "Training of experiment is done and the best loss is {:.2f}".format(self.best_loss)
+        # )
         logger.info(
-            "Training of experiment is done and the best loss is {:.2f}".format(self.best_loss)
+            f"Training of experiment is done and the best loss is {self.best_loss},"
+            f"anmaly_ratio:{self.anomaly_ratio}, Accuracy:{self.accuracy}, Precision:{self.precision},"
+            f"Recall:{self.recall}, best F1:{self.best_f1}"
         )
         print(f"anmaly_ratio:{self.anomaly_ratio}, Accuracy:{self.accuracy}, Precision:{self.precision}, Recall:{self.recall}, best F1:{self.best_f1}")
     def train_in_epoch(self):
@@ -170,6 +175,11 @@ class Trainer:
             self.optimizer.zero_grad()
             self.scaler.scale(loss1).backward(retain_graph=True)
             self.scaler.scale(loss2).backward()
+            # if self.args.diff_ass_dis:
+            #     self.scaler.scale(loss1).backward(retain_graph=True)
+            #     self.scaler.scale(loss2).backward()
+            # else:
+            #     self.scaler.scale(loss_noise).backward()
             self.scaler.step(self.optimizer)
         elif self.args.name == 'LSTM-VAE':
             rec_loss = vae_loss(input, x_decoded_mean, z_mean, z_log_sigma)
@@ -297,7 +307,7 @@ class Trainer:
     def get_model(self):
         if self.args.name == "Transformer-DDPM":
             self.model = DiffusionTransformer(win_size=self.args.win_size, enc_in=self.enc_in,  c_out=self.c_out,
-                                              d_model=512, n_heads=8, e_layers=3, d_ff=512, dropout=0.0,
+                                              d_model=512, n_heads=8, e_layers=self.args.e_layers, d_ff=None, dropout=0.0,
                                               activation='gelu', output_attention=True).to(self.device)
             return self.model
         if self.args.name == "LSTM-VAE":
