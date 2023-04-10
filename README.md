@@ -15,6 +15,7 @@ Transformer-DDPM: Anomaly Detection of Time Series with Transformer-based Denois
 ```cmd
 # git clone the projects
 git clone git@github.com:Walker-xionglang/Transformer-DDPM.git
+cd Transformer-DDPM
 # install the library
 pip install -r requirements.txt
 ```
