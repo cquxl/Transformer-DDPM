@@ -1,0 +1,11 @@
+pytorch == 1.11.0
+loguru
+tensorboardX
+scikit_learn
+tensorflow 
+scipy
+numpy
+pandas
+matplotlib
+einops
+tqdm
